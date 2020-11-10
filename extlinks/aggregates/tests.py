@@ -5,7 +5,7 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from .factories import LinkAggregateFactory
-from .models import LinkAggregate
+from .models import LinkAggregate, PageAggregate
 from extlinks.links.factories import LinkEventFactory, URLPatternFactory
 from extlinks.organisations.factories import CollectionFactory, OrganisationFactory
 
@@ -120,3 +120,87 @@ class LinkAggregateCommandTest(TestCase):
 
         self.assertEqual(updated_link_aggregate.total_links_added, 2)
         self.assertEqual(updated_link_aggregate.total_links_removed, 0)
+
+
+class PageAggregateCommandTest(TestCase):
+    def setUp(self):
+        # Creating one Collection
+        self.organisation = OrganisationFactory(name="ACME Org")
+        self.collection = CollectionFactory(name="ACME", organisation=self.organisation)
+        self.url = URLPatternFactory(url="www.google.com", collection=self.collection)
+
+        # Adding LinkEvents so that the command has information to parse.
+        link_event_1 = LinkEventFactory(
+            page_title="Page1", timestamp=datetime(2020, 1, 1, 15, 30, 35)
+        )
+        link_event_1.url.add(self.url)
+        link_event_1.save()
+
+        link_event_2 = LinkEventFactory(
+            page_title="Page1", timestamp=datetime(2020, 1, 1, 17, 40, 55)
+        )
+        link_event_2.url.add(self.url)
+        link_event_2.save()
+
+        link_event_3 = LinkEventFactory(
+            page_title="Page2", timestamp=datetime(2020, 1, 1, 19, 5, 42)
+        )
+        link_event_3.url.add(self.url)
+        link_event_3.save()
+
+        link_event_4 = LinkEventFactory(
+            page_title="Page1", timestamp=datetime(2020, 9, 10, 12, 9, 14)
+        )
+        link_event_4.url.add(self.url)
+        link_event_4.save()
+
+        link_event_5 = LinkEventFactory(
+            page_title="Page2", timestamp=datetime(2020, 9, 10, 12, 40, 50)
+        )
+        link_event_5.url.add(self.url)
+        link_event_5.save()
+
+        link_event_6 = LinkEventFactory(
+            page_title="Page2", timestamp=datetime(2020, 9, 10, 16, 52, 49)
+        )
+        link_event_6.url.add(self.url)
+        link_event_6.save()
+
+        link_event_7 = LinkEventFactory(
+            page_title="Page1", timestamp=datetime(2020, 9, 10, 17, 16, 30)
+        )
+        link_event_7.url.add(self.url)
+        link_event_7.save()
+
+        link_event_8 = LinkEventFactory(
+            page_title="Page1", timestamp=datetime(2020, 9, 10, 22, 36, 15)
+        )
+        link_event_8.url.add(self.url)
+        link_event_8.save()
+
+    # Test when PageAggregate table is empty
+    def test_page_aggregate_table_empty(self):
+        self.assertEqual(PageAggregate.objects.count(), 0)
+
+        call_command("fill_page_aggregates")
+
+        self.assertEqual(PageAggregate.objects.count(), 4)
+
+        # Getting PageAggregates to check information is correct
+        page1_aggregate_january = PageAggregate.objects.get(
+            day=1, month=1, year=2020, page_name="Page1"
+        )
+        page2_aggregate_january = PageAggregate.objects.get(
+            day=1, month=1, year=2020, page_name="Page2"
+        )
+        self.assertEqual(page1_aggregate_january.total_links_added, 2)
+        self.assertEqual(page2_aggregate_january.total_links_added, 1)
+
+        page1_aggregate_september = PageAggregate.objects.get(
+            day=10, month=9, year=2020, page_name="Page1"
+        )
+        page2_aggregate_september = PageAggregate.objects.get(
+            day=10, month=9, year=2020, page_name="Page2"
+        )
+        self.assertEqual(page1_aggregate_september.total_links_added, 3)
+        self.assertEqual(page2_aggregate_september.total_links_added, 2)
