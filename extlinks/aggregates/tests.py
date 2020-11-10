@@ -4,9 +4,12 @@ from datetime import datetime, date, timedelta
 from django.core.management import call_command
 from django.test import TestCase
 
-from .factories import LinkAggregateFactory
+from .factories import LinkAggregateFactory, PageAggregateFactory
 from .models import LinkAggregate, PageAggregate
-from extlinks.links.factories import LinkEventFactory, URLPatternFactory
+from extlinks.links.factories import (
+    LinkEventFactory,
+    URLPatternFactory,
+)
 from extlinks.organisations.factories import CollectionFactory, OrganisationFactory
 
 
@@ -204,3 +207,63 @@ class PageAggregateCommandTest(TestCase):
         )
         self.assertEqual(page1_aggregate_september.total_links_added, 3)
         self.assertEqual(page2_aggregate_september.total_links_added, 2)
+
+    def test_page_aggregate_table_with_data(self):
+        yesterday = datetime.today() - timedelta(days=1)
+        self.assertEqual(PageAggregate.objects.count(), 0)
+        # Add PageAggregates NOTE: the last PageAggregate date here needs to be
+        # greater than the latest LinkEvent date in the setUp
+        PageAggregateFactory(full_date=date(2020, 1, 1))
+        PageAggregateFactory(full_date=date(2020, 2, 12))
+        PageAggregateFactory(full_date=date(2020, 2, 15))
+        PageAggregateFactory(full_date=date(2020, 9, 10))
+        PageAggregateFactory(full_date=date(2020, 9, 30))
+        PageAggregateFactory(full_date=date(2020, 9, 30))
+
+        self.assertEqual(PageAggregate.objects.count(), 6)
+
+        # Add a LinkEvent from yesterday, a PageAggregate with this date does not
+        # exist yet
+        yesterday_datetime = datetime(
+            yesterday.year, yesterday.month, yesterday.day, 9, 18, 47
+        )
+        link_event = LinkEventFactory(timestamp=yesterday_datetime, page_title="Page1")
+        link_event.url.add(self.url)
+        link_event.save()
+
+        call_command("fill_page_aggregates")
+
+        self.assertEqual(PageAggregate.objects.count(), 7)
+
+        yesterday_page_aggregate = PageAggregate.objects.get(
+            full_date=yesterday.date(),
+            page_name="Page1",
+            collection=self.collection,
+            organisation=self.organisation,
+        )
+        self.assertEqual(yesterday_page_aggregate.total_links_added, 1)
+
+        # The eventstream container crashed and a LinkEvent was not added to
+        # yesterday's aggregate
+        yesterday_late_datetime = datetime(
+            yesterday.year, yesterday.month, yesterday.day, 12, 30, 56
+        )
+        link_event_2 = LinkEventFactory(
+            timestamp=yesterday_late_datetime, page_title="Page1"
+        )
+        link_event_2.url.add(self.url)
+        link_event_2.save()
+
+        # That should be picked up by the command and add the new count
+        call_command("fill_page_aggregates")
+
+        # Now, the link aggregate should have 2 event links added in
+        updated_page_aggregate = PageAggregate.objects.get(
+            organisation=self.organisation,
+            collection=self.collection,
+            page_name="Page1",
+            full_date=yesterday.date(),
+        )
+
+        self.assertEqual(updated_page_aggregate.total_links_added, 2)
+        self.assertEqual(updated_page_aggregate.total_links_removed, 0)
