@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import LinkAggregate
+from .models import LinkAggregate, PageAggregate
 
 
 class LinkAggregateAdmin(admin.ModelAdmin):
@@ -15,3 +15,18 @@ class LinkAggregateAdmin(admin.ModelAdmin):
 
 
 admin.site.register(LinkAggregate, LinkAggregateAdmin)
+
+
+class PageAggregateAdmin(admin.ModelAdmin):
+    list_display = (
+        "organisation",
+        "collection",
+        "page_name",
+        "full_date",
+        "total_links_added",
+        "total_links_removed",
+    )
+    list_filter = ("organisation", "collection", "month", "year")
+
+
+admin.site.register(PageAggregate, PageAggregateAdmin)
