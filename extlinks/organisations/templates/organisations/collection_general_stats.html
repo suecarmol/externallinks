@@ -1,0 +1,34 @@
+<div class="row row-flex" style="margin-bottom: 200px;">
+  <div class="card text-white bg-teal">
+      <div class="card-body">
+              <h1 class="card-subtitle mb-2 text-white">
+                {% if collection.total_diff > 0%}
+                  <img src="/static/fonts/bootstrap-icons/caret-up-fill.svg" alt="Plus icon" width="42" height="42">
+                {% else %}
+                  <img src="/static/fonts/bootstrap-icons/caret-down-fill.svg" alt="Plus icon" width="42" height="42">
+                {% endif %}
+                {{ collection.total_diff }}
+              </h1>
+              <h5 class="card-title">Link Changes</h5>
+      </div>
+  </div>
+  <div class="card text-white" style="background-color: #702ddb;">
+      <div class="card-body">
+              <h1 class="card-subtitle mb-2 text-white">
+                <img src="/static/fonts/bootstrap-icons/people.svg" alt="Minus icon" width="42" height="42">
+                {{ collection.total_editors }}
+              </h1>
+              <h5 class="card-title">Total Editors</h5>
+      </div>
+  </div>
+  <div class="card text-white bg-dark">
+      <div class="card-body">
+              <h1 class="card-subtitle mb-2 text-white">
+                <img src="/static/fonts/bootstrap-icons/globe2.svg" alt="Minus icon" width="42" height="42">
+                {{ collection.total_projects }}
+              </h1>
+              <h5 class="card-title">Total Projects</h5>
+      </div>
+  </div>
+  <a href="{% url 'organisations:collection_detail' organisation.pk collection.object.id %}" class="btn btn-outline-dark">More Statistics</a>
+</div>

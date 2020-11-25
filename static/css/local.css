@@ -121,3 +121,11 @@ hr {
     border-top-color: #9a9a9a;
     border-top-width: 4px;
 }
+
+.bg-teal{
+    background-color: var(--teal);
+}
+
+.bg-dark{
+    background-color: var(--dark);
+}

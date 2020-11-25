@@ -101,16 +101,16 @@
                         <th>Added</th>
                         <th>Removed</th>
                     </tr>
-                    {% for page in collection.top_pages %}
+                    {% for page in top_pages %}
                         <tr>
                             <td>
-                                <a href="https://{{ page.domain }}/wiki/{{ page.page_title }}">{{ page.page_title|replace_underscores|truncatechars:20 }}</a>
+                                <a href="https://{{ page.domain }}/wiki/{{ page.page_name }}">{{ page.page_name|replace_underscores|truncatechars:20 }}</a>
                             </td>
                             <td>
-                                {{ page.links_added }}
+                                {{ page.total_links_added__sum }}
                             </td>
                             <td>
-                                {{ page.links_removed }}
+                                {{ page.total_links_removed__sum }}
                             </td>
                         </tr>
                     {% endfor %}
@@ -126,16 +126,16 @@
                         <th>Added</th>
                         <th>Removed</th>
                     </tr>
-                    {% for project in collection.top_projects %}
+                    {% for project in top_projects %}
                         <tr>
                             <td>
-                                {{ project.domain }}
+                                {{ project.project_name }}
                             </td>
                             <td>
-                                {{ project.links_added }}
+                                {{ project.total_links_added__sum }}
                             </td>
                             <td>
-                                {{ project.links_removed }}
+                                {{ project.total_links_removed__sum }}
                             </td>
                         </tr>
                     {% endfor %}
@@ -151,16 +151,16 @@
                         <th>Added</th>
                         <th>Removed</th>
                     </tr>
-                    {% for user in collection.top_users %}
+                    {% for user in top_users %}
                         <tr>
                             <td>
-                                <a href="https://meta.wikimedia.org/wiki/User:{{ user.username__username }}">{{ user.username__username|truncatechars:15 }}</a>
+                                <a href="https://meta.wikimedia.org/wiki/User:{{ user.username }}">{{ user.username|truncatechars:15 }}</a>
                             </td>
                             <td>
-                                {{ user.links_added }}
+                                {{ user.total_links_added__sum }}
                             </td>
                             <td>
-                                {{ user.links_removed }}
+                                {{ user.total_links_removed__sum }}
                             </td>
                         </tr>
                     {% endfor %}

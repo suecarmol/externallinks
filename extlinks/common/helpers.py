@@ -3,6 +3,12 @@ from datetime import date, timedelta
 from django.db.models import Count, Q, Avg
 from django.db.models.functions import TruncMonth
 
+from extlinks.aggregates.models import (
+    LinkAggregate,
+    PageAggregate,
+    ProjectAggregate,
+    UserAggregate,
+)
 from extlinks.links.models import LinkEvent
 
 from logging import getLogger
@@ -296,15 +302,6 @@ def get_linkevent_context(context, queryset):
     Returns a dictionary
     """
 
-    context["top_projects"] = annotate_top(
-        queryset, "-links_added", ["domain"], num_results=5
-    )
-
-    all_users = annotate_top(
-        queryset.select_related("username"), "-links_added", ["username__username"]
-    )
-    context["top_users"] = all_users[:5]
-
     # Prefetch a bunch of related data to save on number of queries
     context["latest_links"] = queryset.prefetch_related(
         "username", "url", "url__collection", "url__collection__organisation"
@@ -317,12 +314,16 @@ def get_linkevent_context(context, queryset):
     context["eventstream_added_data"] = added_data_series
     context["eventstream_removed_data"] = removed_data_series
 
-    # Stat block
-    context["total_added"] = sum(added_data_series)
-    context["total_removed"] = sum(removed_data_series)
-    context["total_diff"] = context["total_added"] - context["total_removed"]
-
-    context["total_editors"] = queryset.values_list("username").distinct().count()
-    context["total_projects"] = queryset.values_list("domain").distinct().count()
-
     return context
+
+
+def filter_dates(form_dict):
+    if "start_date" in form_dict:
+        start_date = form_dict["start_date"]
+        if start_date:
+            queryset = queryset.filter(timestamp__gte=start_date)
+
+    if "end_date" in form_dict:
+        end_date = form_dict["end_date"]
+        if end_date:
+            queryset = queryset.filter(timestamp__lte=end_date)

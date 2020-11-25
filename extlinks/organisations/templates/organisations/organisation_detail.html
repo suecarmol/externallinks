@@ -7,7 +7,7 @@
                 <p style="font-size: 18px">Collections</p>
                 {% for key, collection in collections.items %}
                     <li>
-                        <a href="#{{ key }}">{{ collection.object }}</a>
+                        <a href="#{{ key }}">{{ collection.object.name }}</a>
                         {% for urlpattern in collection.urls %}
                             <div class="sidebar-sub-entry">{{ urlpattern }}</div>
                         {% endfor %}
@@ -17,11 +17,11 @@
         </nav>
         <nav id="content" class="charts-body">
             <div class="row">
-                <div class="col-6">
+                <div class="col-12">
                     <h1>{{ object }}</h1>
                 </div>
-                <div class="col-6">
-                    <form method="GET" id="graph-date-form">
+                <div class="col-12">
+                    <form method="GET" id="filter-form">
                         <div class="form-row">
                             <div class="fieldWrapper" style="padding: 15px;">
                                 {{ form.start_date.errors }}
@@ -37,31 +37,6 @@
                                     <p class="help">{{ form.end_date.help_text|safe }}</p>
                                 {% endif %}
                             </div>
-                            <div class=fieldWrapper style="padding: 15px;">
-                                {{ form.namespace_id.errors }}
-                                {{ form.namespace_id.label_tag }}{{ form.namespace_id }}
-                                {% if form.namespace_id.help_text %}
-                                    <p class="help">{{ form.namespace_id.help_text|safe }}</p>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            {% if object.limit_by_user %}
-                                <div class="fieldWrapper" style="padding: 15px;">
-                                    {{ form.limit_to_user_list.errors }}
-                                    {{ form.limit_to_user_list.label_tag }} {{ form.limit_to_user_list }}
-                                    {% if form.limit_to_user_list.help_text %}
-                                        <p class="help">{{ form.limit_to_user_list.help_text|safe }}</p>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
-                            <div class="fieldWrapper" style="padding: 15px;">
-                                {{ form.exclude_bots.errors }}
-                                {{ form.exclude_bots.label_tag }} {{ form.exclude_bots }}
-                                {% if form.exclude_bots.help_text %}
-                                    <p class="help">{{ form.exclude_bots.help_text|safe }}</p>
-                                {% endif %}
-                            </div>
                             <div class="col">
                                 <button type="submit" class="btn btn-primary">Submit</button>
                             </div>
@@ -69,8 +44,19 @@
                     </form>
                 </div>
             </div>
-
-            {% include "organisations/organisation_charts_include.html" %}
+            {% if collections.keys|length == 1 %}
+              {% for key, collection in collections.items %}
+                <h2 id="{{ key }}"> {{ collection.object.name }} </h2>
+                {% include "organisations/organisation_general_stats.html" %}
+              {% endfor %}
+            {% else %}
+              <h2> All Collections </h2>
+              {% include "organisations/organisation_general_stats.html" %}
+              {% for key, collection in collections.items %}
+                <h3 id="{{ key }}" class="text-muted"> {{ collection.object.name }} </h3>
+                {% include "organisations/collection_general_stats.html" %}
+              {% endfor %}
+            {% endif %}
         </nav>
     </div>
 {% endblock %}

@@ -1,0 +1,36 @@
+<div class="row row-flex" style="margin-bottom: 200px;">
+  <div class="card text-white bg-info">
+    <div class="card-body">
+      <h1 class="card-subtitle mb-2">
+        {% if organisation_link_changes > 0%}
+          <img src="/static/fonts/bootstrap-icons/caret-up-fill.svg" alt="Plus icon" width="42" height="42">
+        {% else %}
+          <img src="/static/fonts/bootstrap-icons/caret-down-fill.svg" alt="Plus icon" width="42" height="42">
+        {% endif %}
+        {{ organisation_link_changes }}
+      </h1>
+      <h5 class="card-title">Link Changes</h5>
+    </div>
+  </div>
+  <div class="card text-white" style="background-color: #7f55c4">
+      <div class="card-body">
+              <h1 class="card-subtitle mb-2">
+                <img src="/static/fonts/bootstrap-icons/people.svg" alt="Editors icon" width="42" height="42">
+                {{ organisation_total_editors }}
+              </h1>
+              <h5 class="card-title">Total Editors</h5>
+      </div>
+  </div>
+  <div class="card text-white bg-secondary">
+      <div class="card-body">
+              <h1 class="card-subtitle mb-2">
+                <img src="/static/fonts/bootstrap-icons/globe2.svg" alt="Projects icon" width="42" height="42">
+                {{ organisation_total_projects }}
+              </h1>
+              <h5 class="card-title">Total Projects</h5>
+      </div>
+  </div>
+  {% if collections.keys|length == 1 %}
+    <a href="{% url 'organisations:collection_detail' organisation.pk collection.object.id %}" class="btn btn-outline-dark">More Statistics</a>
+  {% endif %}
+</div>
