@@ -1,10 +1,7 @@
+from datetime import datetime, date, timedelta
 import json
 import re
 
-from datetime import datetime, date, timedelta
-from logging import getLogger
-
-from dateutil.relativedelta import relativedelta
 from django.contrib import messages
 from django.db.models import Count, Sum, Q, Prefetch, CharField
 from django.db.models.functions import Cast
@@ -18,22 +15,14 @@ from extlinks.aggregates.models import (
     PageProjectAggregate,
     UserAggregate,
 )
-from extlinks.aggregates.storage import (
-    find_unique,
-    calculate_totals,
-    download_aggregates,
-)
 from extlinks.common.forms import FilterForm
 from extlinks.common.helpers import (
     get_linksearchtotal_data_by_time,
     filter_linksearchtotals,
     build_queryset_filters,
-    last_day,
 )
 from extlinks.links.models import LinkSearchTotal
 from .models import Organisation, Collection
-
-logger = getLogger("django")
 
 
 class OrganisationListView(ListView):
@@ -198,7 +187,6 @@ class OrganisationDetailView(DetailView):
         eventstream_dates = []
         eventstream_net_change = []
         filtered_link_aggregate = LinkAggregate.objects.filter(queryset_filter)
-        to_date = None
 
         # Figure out what date the graph should end on.
         date_cursor = self.request.GET.get("end_date")
@@ -209,12 +197,6 @@ class OrganisationDetailView(DetailView):
 
         if filtered_link_aggregate.exists():
             earliest_link_date = filtered_link_aggregate.earliest("full_date").full_date
-
-            # Figure out the cutoff date for archives since we only want to
-            # download archived aggregates up to the point until aggregate data
-            # is present in the DB.
-            to_date = earliest_link_date - relativedelta(months=1)
-            to_date = to_date.replace(day=last_day(to_date))
         else:
             # No link information from that collection, so setting earliest_link_date
             # to the first of the current month
@@ -240,17 +222,10 @@ class OrganisationDetailView(DetailView):
             LinkAggregate.objects.filter(queryset_filter)
             .values("month", "year")
             .annotate(
-                links_diff=Sum("total_links_added") - Sum("total_links_removed"),
+                net_change=Sum("total_links_added") - Sum("total_links_removed"),
             )
             .order_by("year", "month")
         )
-
-        # Adjust the earliest link date to the date of the earliest known
-        # archive so the chart includes the archive data.
-        for total in totals:
-            full_date = datetime.strptime(total["full_date"], "%Y-%m-%d").date()
-            if full_date < earliest_link_date:
-                earliest_link_date = full_date
 
         # Filling an array of dates that should be in the chart
         while date_cursor >= earliest_link_date:
@@ -266,7 +241,7 @@ class OrganisationDetailView(DetailView):
             else:
                 date_combined = f"{link['year']}-{link['month']}"
 
-            existing_link_aggregates[date_combined] = link["links_diff"]
+            existing_link_aggregates[date_combined] = link["net_change"]
 
         for month_year in dates:
             eventstream_dates.append(month_year)
@@ -313,17 +288,12 @@ def get_editor_count(request):
             group_by=lambda record: (record["username"]),
         )
     )
-
-    response = {"editor_count": len(usernames)}
+    response = {"editor_count": editor_count["editor_count"]}
 
     return JsonResponse(response)
 
 
 def get_project_count(request):
-    """
-    request : dict
-    Ajax request for project count (found in the Statistics table)
-    """
     form_data = json.loads(request.GET.get("form_data", "{}"))
     collection_id = int(request.GET.get("collection", None))
     collection = Collection.objects.get(id=collection_id)
@@ -350,8 +320,7 @@ def get_project_count(request):
             group_by=lambda record: (record["project_name"]),
         )
     )
-
-    response = {"project_count": len(projects)}
+    response = {"project_count": project_count["project_count"]}
 
     return JsonResponse(response)
 
@@ -366,8 +335,7 @@ def get_links_count(request):
     collection = Collection.objects.get(id=collection_id)
 
     queryset_filter = build_queryset_filters(form_data, {"collection": collection})
-    aggregates = LinkAggregate.objects.filter(queryset_filter)
-    links_added_removed = aggregates.aggregate(
+    links_added_removed = LinkAggregate.objects.filter(queryset_filter).aggregate(
         links_added=Sum("total_links_added"),
         links_removed=Sum("total_links_removed"),
         links_diff=Sum("total_links_added") - Sum("total_links_removed"),
@@ -397,9 +365,9 @@ def get_links_count(request):
         links_diff += totals[0]["links_diff"]
 
     response = {
-        "links_added": links_added,
-        "links_removed": links_removed,
-        "links_diff": links_diff,
+        "links_added": links_added_removed["links_added"],
+        "links_removed": links_added_removed["links_removed"],
+        "links_diff": links_added_removed["links_diff"],
     }
 
     return JsonResponse(response)
@@ -415,17 +383,14 @@ def get_top_pages(request):
     collection = Collection.objects.get(id=collection_id)
 
     queryset_filter = build_queryset_filters(form_data, {"collection": collection})
-    aggregates = PageProjectAggregate.objects.filter(queryset_filter)
-
-    # Calculate the top pages using just aggregates from the database to start.
-    top_pages = {
-        (top_page["project_name"], top_page["page_name"]): top_page
-        for top_page in (
-            aggregates.values("project_name", "page_name").annotate(
-                links_diff=Sum("total_links_added") - Sum("total_links_removed"),
-            )
+    top_pages = (
+        PageProjectAggregate.objects.filter(queryset_filter)
+        .values("project_name", "page_name")
+        .annotate(
+            links_diff=Sum("total_links_added") - Sum("total_links_removed"),
         )
-    }
+        .order_by("-links_diff")
+    )[:5]
 
     # Create a filter to only download archives for missing months.
     to_date = None
@@ -472,17 +437,14 @@ def get_top_projects(request):
     collection = Collection.objects.get(id=collection_id)
 
     queryset_filter = build_queryset_filters(form_data, {"collection": collection})
-    aggregates = PageProjectAggregate.objects.filter(queryset_filter)
-
-    # Calculate the top projects using just aggregates from the database to start.
-    top_projects = {
-        top_project["project_name"]: top_project
-        for top_project in (
-            aggregates.values("project_name").annotate(
-                links_diff=Sum("total_links_added") - Sum("total_links_removed"),
-            )
+    top_projects = (
+        PageProjectAggregate.objects.filter(queryset_filter)
+        .values("project_name")
+        .annotate(
+            links_diff=Sum("total_links_added") - Sum("total_links_removed"),
         )
-    }
+        .order_by("-links_diff")
+    )[:5]
 
     # Create a filter to only download archives for missing months.
     to_date = None
@@ -531,17 +493,14 @@ def get_top_users(request):
     collection = Collection.objects.get(id=collection_id)
 
     queryset_filter = build_queryset_filters(form_data, {"collection": collection})
-    aggregates = UserAggregate.objects.filter(queryset_filter)
-
-    # Calculate the top users using just aggregates from the database to start.
-    top_users = {
-        top_user["username"]: top_user
-        for top_user in (
-            aggregates.values("username").annotate(
-                links_diff=Sum("total_links_added") - Sum("total_links_removed"),
-            )
+    top_users = (
+        UserAggregate.objects.filter(queryset_filter)
+        .values("username")
+        .annotate(
+            links_diff=Sum("total_links_added") - Sum("total_links_removed"),
         )
-    }
+        .order_by("-links_diff")
+    )[:5]
 
     # Create a filter to only download archives for missing months.
     to_date = None
